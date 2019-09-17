@@ -51,3 +51,32 @@ void spline::setVectorB() {
 		B_y(i - 1) = 6 * ((y(i + 1) - y(i)) / h(i) - (y(i) - y(i - 1)) / h(i - 1));
 	}
 }
+
+void spline::solveEquations() {
+	X_x = Eigen::VectorXd::Zero(N + 1);
+	X_y = Eigen::VectorXd::Zero(N + 1);
+
+	X_x.segment(1, N - 1) = A.colPivHouseholderQr().solve(B_x);
+	X_y.segment(1, N - 1) = A.colPivHouseholderQr().solve(B_y);
+}
+
+void spline::setCoefficients() {
+
+	xCoeff = Eigen::MatrixXd::Zero(N, 4);
+	yCoeff = Eigen::MatrixXd::Zero(N, 4);
+
+	for (uint64_t i = 1; i <= N; i++) {
+		xCoeff(i - 1, 0) = (X_x(i) - X_x(i - 1)) / (6 * h(i - 1));
+		yCoeff(i - 1, 0) = (X_y(i) - X_y(i - 1)) / (6 * h(i - 1));
+
+		xCoeff(i - 1, 1) = (X_x(i)) / 2;
+		yCoeff(i - 1, 1) = (X_y(i)) / 2;
+
+		xCoeff(i - 1, 2) = (x(i) - x(i - 1)) / h(i - 1) + h(i - 1) * (2 * X_x(i) + X_x(i - 1)) / 6;
+		yCoeff(i - 1, 2) = (y(i) - y(i - 1)) / h(i - 1) + h(i - 1) * (2 * X_y(i) + X_y(i - 1)) / 6;
+
+		xCoeff(i - 1, 3) = x(i);
+		yCoeff(i - 1, 3) = y(i);
+	}
+
+}
