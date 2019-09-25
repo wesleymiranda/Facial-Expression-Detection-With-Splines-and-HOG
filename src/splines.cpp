@@ -80,3 +80,40 @@ void spline::setCoefficients() {
 	}
 
 }
+
+void spline::cubicFunction(double t, double tk, int line, double& x_, double& y_) {
+	x_ = pow(t - tk, 3) * xCoeff(line, 0) + pow(t - tk, 2) * xCoeff(line, 1) + (t - tk) * xCoeff(line, 2) + xCoeff(line, 3);
+	y_ = pow(t - tk, 3) * yCoeff(line, 0) + pow(t - tk, 2) * yCoeff(line, 1) + (t - tk) * yCoeff(line, 2) + yCoeff(line, 3);
+}
+
+void spline::drawSplines(Mat& img) {
+	int sections = 20;
+	std::vector<Point2i> points;
+	for (int i = 0; i < N; i++) {
+
+		double tk = (double)(i + 1) / N;
+		double t = (double)i / N;
+		double coord_x, coord_y;
+		double increment = h(i) / sections;
+
+		for (int j = 0; j <= sections; j++) {
+			cubicFunction(t, tk, i, coord_x, coord_y);
+			points.push_back(Point2i(coord_x, coord_y));
+			t += increment;
+		}
+
+	}
+	polylines(img, points, false, Scalar(255, 0, 0), 1, 16);
+}
+
+
+Mat spline::getCoefficients() {
+	cvCoeff = cv::Mat::zeros(1, N * 2 * 4, CV_32FC1);
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < 4; j++) {
+			cvCoeff.at<float>(4*i + j) = xCoeff(i, j);
+			cvCoeff.at<float>(4*N + 4*i + j) = yCoeff(i, j);
+		}
+	}
+	return cvCoeff;
+}
