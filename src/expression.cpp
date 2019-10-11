@@ -49,3 +49,37 @@ void expression::setPoints(int init, int size, spline &s, int other = 0) {
 
 	s = spline(x, y);
 }
+
+void expression::setSplines() {
+
+	setPoints(0, 17, jaw);
+	setPoints(17, 5, leftEyebrown);
+	setPoints(22, 5, rightEyebrown);
+	setPoints(27, 4, nasalBridge);
+	setPoints(31, 5, nose);
+	setPoints(36, 4, leftUpperEye);
+	setPoints(39, 3, leftLowerEye, 36);
+	setPoints(42, 4, rightUpperEye);
+	setPoints(45, 3, rightLowerEye, 42);
+	setPoints(48, 7, outerUpperLip);
+	setPoints(54, 6, outerLowerLip, 48);
+	setPoints(60, 5, innerUpperLip);
+	setPoints(64, 4, innerLowerLip, 60);
+
+}
+
+void expression::drawFace(Mat &img) {
+	jaw.drawSplines(img);
+	leftEyebrown.drawSplines(img);
+	rightEyebrown.drawSplines(img);
+	nasalBridge.drawSplines(img);
+	nose.drawSplines(img);
+	leftUpperEye.drawSplines(img);
+	leftLowerEye.drawSplines(img);
+	rightUpperEye.drawSplines(img);
+	rightLowerEye.drawSplines(img);
+	outerUpperLip.drawSplines(img);
+	outerLowerLip.drawSplines(img);
+	innerUpperLip.drawSplines(img);
+	innerLowerLip.drawSplines(img);
+}
