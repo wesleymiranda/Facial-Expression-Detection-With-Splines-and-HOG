@@ -83,3 +83,24 @@ void expression::drawFace(Mat &img) {
 	innerUpperLip.drawSplines(img);
 	innerLowerLip.drawSplines(img);
 }
+
+Mat expression::getFeatures() {
+
+	features = jaw.getCoefficients();
+
+	
+	hconcat(features, leftEyebrown.getCoefficients(), features);
+	hconcat(features, rightEyebrown.getCoefficients(), features);
+	hconcat(features, nasalBridge.getCoefficients(), features);
+	hconcat(features, nose.getCoefficients(), features);
+	hconcat(features, leftUpperEye.getCoefficients(), features);
+	hconcat(features, leftLowerEye.getCoefficients(), features);
+	hconcat(features, rightUpperEye.getCoefficients(), features);
+	hconcat(features, rightLowerEye.getCoefficients(), features);
+	hconcat(features, outerUpperLip.getCoefficients(), features);
+	hconcat(features, outerLowerLip.getCoefficients(), features);
+	hconcat(features, innerUpperLip.getCoefficients(), features);
+	hconcat(features, innerLowerLip.getCoefficients(), features);
+
+	return features;
+}
