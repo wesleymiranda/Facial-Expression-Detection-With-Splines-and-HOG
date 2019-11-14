@@ -104,3 +104,120 @@ void detector::init() {
 	
 }
 
+void detector::train() {
+
+	init();
+
+	std::string path = "../datas/images/DBs/mydb/train";
+
+	Mat trainClassesMLP, trainClassesSVM; // saída esperada
+	Mat geometricFeatures, apparenceFeatures;
+
+	int cont = 0;
+	for (const auto& entry : fs::directory_iterator(path)) {
+		std::string file = entry.path().string();
+		
+		Mat img = imread(file);
+		DLIBImage dlibImg(img);
+		
+		if (img.empty()) {
+			std::cout << "---PROBLEM" << file << std::endl;
+			continue;
+		}
+
+		//----------------------//
+		//PARA O CK DATABASE
+		//DLIBRects dlibRects;
+		//dlibRects.push_back(dlib::rectangle(0, 0, img.cols, img.rows));
+		//PARA OUTROS DATABASES
+		DLIBRects dlibRects = faceDetector(dlibImg);
+		//---------------------//
+
+
+		if (dlibRects.empty()) {
+			std::cout << "---PROBLEM" << file << std::endl;
+			continue;
+		}
+
+		for (int i = 0; i < dlibRects.size(); i++){
+			
+			std::vector<float> descriptor;
+			Rect r = dlibRectToOpenCV(dlibRects[i]);
+			if (r.x + r.width > img.cols || r.y + r.height > img.rows) {
+				cout << "PROBLEM--" << file << endl;
+				break;
+			}
+			Mat resizedImg = img(r);
+			cv::resize(resizedImg, resizedImg, Size(128, 128), 0, 0, INTER_CUBIC);
+			hog->compute(resizedImg, descriptor);
+			Mat aux(1, descriptor.size(), cv::DataType<float>::type, descriptor.data());
+			apparenceFeatures.push_back(aux);
+
+			full_object_detection landmarks;
+			getLandmarks(landmarks, dlibImg, dlibRects[i]);
+			expression facialExpression = expression(img, landmarks);
+			geometricFeatures.push_back(facialExpression.getFeatures());
+
+			Mat m(200, 200, CV_8UC3, Scalar(0));
+			facialExpression.drawFace(m);
+
+			trainClassesMLP.push_back(Mat::zeros(1, nclasses, CV_32F));
+			trainClassesSVM.push_back(Mat::zeros(1, 1, CV_32S));
+
+			if (file.find("happy") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 0) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 0;
+			}
+			else if (file.find("neutral") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 1) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 1;
+			}
+			else if (file.find("sad") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 2) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 2;
+			}
+			else if (file.find("surprised") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 3) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 3;
+			}/*
+			else if (file.find("fear") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 4) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 4;
+			}else if (file.find("joy") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 5) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 5;
+			}
+			else if (file.find("neutral") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 6) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 6;
+			}
+			else if (file.find("pride") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 7) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 7;
+			}
+			else if (file.find("sad") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 8) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 8;
+			}
+			else if (file.find("surprised") != std::string::npos) {
+				trainClassesMLP.at<float>(cont, 9) = 1;
+				trainClassesSVM.at<int>(cont, 0) = 9;
+			}*/
+			
+		}
+		cont++;
+	}
+
+	annGeometric->train(geometricFeatures, ml::ROW_SAMPLE, trainClassesMLP);
+	annApparence->train(apparenceFeatures, ml::ROW_SAMPLE, trainClassesMLP);
+	svmGeometric->train(geometricFeatures, ml::ROW_SAMPLE, trainClassesSVM);
+	svmApparence->train(apparenceFeatures, ml::ROW_SAMPLE, trainClassesSVM);
+
+	Mat features;
+	hconcat(apparenceFeatures, geometricFeatures, features);
+	
+	svm->train(features, ml::ROW_SAMPLE, trainClassesSVM);
+	ann->train(features, ml::ROW_SAMPLE, trainClassesMLP);
+	
+	//saveTrain();
+}
