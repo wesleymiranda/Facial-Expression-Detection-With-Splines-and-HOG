@@ -221,3 +221,8 @@ void detector::train() {
 	
 	//saveTrain();
 }
+
+void detector::saveTrain() {
+	svm->save("ml/svm.yml");
+	ann->save("ml/ann.yml");
+}
