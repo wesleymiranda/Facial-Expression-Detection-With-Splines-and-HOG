@@ -226,3 +226,167 @@ void detector::saveTrain() {
 	svm->save("ml/svm.yml");
 	ann->save("ml/ann.yml");
 }
+
+void detector::test() {
+
+	std::string path = "../datas/images/DBs/mydb/test";
+
+	Mat geometricFeatures, apparenceFeatures;
+	Mat testLabels;
+	
+	for (const auto& entry : fs::directory_iterator(path)) {
+		std::string file = entry.path().string();
+
+		Mat img = imread(file);
+		DLIBImage dlibImg(img);
+		
+		if (img.empty()) {
+			std::cout << "---PROBLEM" << file << std::endl;
+			continue;
+		}
+
+		DLIBRects dlibRects = faceDetector(dlibImg);
+		if (dlibRects.empty()) {
+			std::cout << "---PROBLEM" << file << std::endl;
+			continue;
+		}
+
+		for (int i = 0; i < dlibRects.size(); i++) {
+
+			std::vector<float> descriptor;
+			Rect r = dlibRectToOpenCV(dlibRects[i]);
+			if (r.x + r.width > img.cols || r.y + r.height > img.rows) {
+				cout << "PROBLEM--" << file << endl;
+				break;
+			}
+			Mat resizedImg = img(r);
+			cv::resize(resizedImg, resizedImg, Size(128, 128), 0, 0, INTER_CUBIC);
+			hog->compute(resizedImg, descriptor);
+			Mat aux(1, descriptor.size(), cv::DataType<float>::type, descriptor.data());
+			apparenceFeatures.push_back(aux);
+			
+			full_object_detection landmarks;
+			getLandmarks(landmarks, dlibImg, dlibRects[i]);
+			expression facialExpression = expression(img, landmarks);
+			geometricFeatures.push_back(facialExpression.getFeatures());
+
+
+			if (file.find("happy") != std::string::npos) {
+				testLabels.push_back(0);
+			}
+			else if (file.find("neutral") != std::string::npos) {
+				testLabels.push_back(1);
+			}
+			else if (file.find("sad") != std::string::npos) {
+				testLabels.push_back(2);
+			}
+			else if (file.find("surprised") != std::string::npos) {
+				testLabels.push_back(3);
+			}/*
+			else if (file.find("fear") != std::string::npos) {
+				testLabels.push_back(4);
+			}
+			else if (file.find("joy") != std::string::npos) {
+				testLabels.push_back(5);
+			}
+			else if (file.find("neutral") != std::string::npos) {
+				testLabels.push_back(6);
+			}
+			else if (file.find("pride") != std::string::npos) {
+				testLabels.push_back(7);
+			}
+			else if (file.find("sad") != std::string::npos) {
+				testLabels.push_back(8);
+			}
+			else if (file.find("surprised") != std::string::npos) {
+				testLabels.push_back(9);
+			}*/
+		}
+	}
+
+	Mat features;
+	hconcat(apparenceFeatures, geometricFeatures, features);
+
+	int predMLP, predSVM;
+	int truthMLP, truthSVM;
+	Mat resultMLP, resultSVM;
+	Mat confusionMLP(nclasses, nclasses, CV_32S, Scalar(0));
+	Mat confusionSVM(nclasses, nclasses, CV_32S, Scalar(0));
+
+	for (int i = 0; i < geometricFeatures.rows; i++) {
+		predMLP = annGeometric->predict(geometricFeatures.row(i), resultMLP);
+		predSVM = svmGeometric->predict(geometricFeatures.row(i), resultSVM);
+		predSVM = (int) resultSVM.at<float>(0,0);
+		truthMLP = testLabels.at<int>(i);
+		truthSVM = testLabels.at<int>(i);
+		confusionMLP.at<int>(predMLP, truthMLP)++;
+		confusionSVM.at<int>(predSVM, truthSVM)++;
+
+	}
+
+	Mat correct = confusionMLP.diag();
+	float accuracyMLP = sum(correct)[0] / sum(confusionMLP)[0];
+	std::cerr << "GEOMETRIC: " << std::endl;
+	std::cerr << "accuracyMLP: " << accuracyMLP << std::endl;
+	std::cerr << "confusion:\n " << confusionMLP << std::endl;
+
+	Mat correctSVM = confusionSVM.diag();
+	float accuracySVM = sum(correctSVM)[0] / sum(confusionSVM)[0];
+	std::cerr << "accuracySVM: " << accuracySVM << std::endl;
+	std::cerr << "confusionSVM:\n " << confusionSVM << std::endl;
+
+
+	confusionMLP =  Mat::zeros(nclasses, nclasses, CV_32S);
+	confusionSVM =  Mat::zeros(nclasses, nclasses, CV_32S);
+
+
+	for (int i = 0; i < apparenceFeatures.rows; i++) {
+		predMLP = annApparence->predict(apparenceFeatures.row(i), resultMLP);
+		predSVM = svmApparence->predict(apparenceFeatures.row(i), resultSVM);
+		predSVM = (int)resultSVM.at<float>(0, 0);
+		truthMLP = testLabels.at<int>(i);
+		truthSVM = testLabels.at<int>(i);
+		confusionMLP.at<int>(predMLP, truthMLP)++;
+		confusionSVM.at<int>(predSVM, truthSVM)++;
+
+	}
+
+	correct = confusionMLP.diag();
+	accuracyMLP = sum(correct)[0] / sum(confusionMLP)[0];
+	std::cerr << "APPARENCE: " << std::endl;
+	std::cerr << "accuracyMLP: " << accuracyMLP << std::endl;
+	std::cerr << "confusion:\n " << confusionMLP << std::endl;
+
+	correctSVM = confusionSVM.diag();
+	accuracySVM = sum(correctSVM)[0] / sum(confusionSVM)[0];
+	std::cerr << "accuracySVM: " << accuracySVM << std::endl;
+	std::cerr << "confusionSVM:\n " << confusionSVM << std::endl;
+
+
+	confusionMLP =  Mat::zeros(nclasses, nclasses, CV_32S);
+	confusionSVM =  Mat::zeros(nclasses, nclasses, CV_32S);
+
+	for (int i = 0; i < features.rows; i++) {
+		predMLP = ann->predict(features.row(i), resultMLP);
+		predSVM = svm->predict(features.row(i), resultSVM);
+		predSVM = (int)resultSVM.at<float>(0, 0);
+		truthMLP = testLabels.at<int>(i);
+		truthSVM = testLabels.at<int>(i);
+		confusionMLP.at<int>(predMLP, truthMLP)++;
+		confusionSVM.at<int>(predSVM, truthSVM)++;
+
+	}
+
+
+	correct = confusionMLP.diag();
+	accuracyMLP = sum(correct)[0] / sum(confusionMLP)[0];
+	std::cerr << "UNION: " << std::endl;
+	std::cerr << "accuracyMLP: " << accuracyMLP << std::endl;
+	std::cerr << "confusion:\n " << confusionMLP << std::endl;
+
+	correctSVM = confusionSVM.diag();
+	accuracySVM = sum(correctSVM)[0] / sum(confusionSVM)[0];
+	std::cerr << "accuracySVM: " << accuracySVM << std::endl;
+	std::cerr << "confusionSVM:\n " << confusionSVM << std::endl;
+}
+
