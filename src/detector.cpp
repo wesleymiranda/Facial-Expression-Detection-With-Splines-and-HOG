@@ -390,3 +390,15 @@ void detector::test() {
 	std::cerr << "confusionSVM:\n " << confusionSVM << std::endl;
 }
 
+cv::Rect detector::dlibRectToOpenCV(dlib::rectangle r)
+{
+	return cv::Rect(cv::Point2i(r.left(), r.top()), cv::Point2i(r.right(), r.bottom()));
+}
+
+void detector::getLandmarks(full_object_detection &flNormalized, DLIBImage dlibImg,dlib::rectangle r) 
+{
+	full_object_detection faceLandmarks = landmarkDetector(dlibImg, r);
+	chip_details chip = get_face_chip_details(faceLandmarks, 200);
+	flNormalized = map_det_to_chip(faceLandmarks, chip);
+
+}
